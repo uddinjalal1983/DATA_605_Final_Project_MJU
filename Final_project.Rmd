@@ -1,0 +1,394 @@
+---
+title: "DATA_605_Final_Project"
+author: "Md Jalal Uddin"
+date: "December 18, 2016"
+output: html_document
+---
+
+```{r}
+#Create function to download a package
+#Sources:http://stackoverflow.com/questions/9341635/check-for-installed-packages-before-running-install-packages
+
+packages <- function(x){
+  x <- as.character(match.call()[[2]])
+  if (!require(x,character.only=TRUE)){
+    install.packages(pkgs=x,repos="http://cran.r-project.org")
+    require(x,character.only=TRUE)
+  }
+}
+
+#install required packages by using the created function. 
+
+#packages("cowplot")
+#packages("caret")
+#packages("Rmisc")
+#packages("FactoMineR")
+#packages("factoextra")
+
+```
+
+
+```{r}
+library("stringr")
+library("RCurl")
+library("knitr")
+library("rmongodb")
+library("jsonlite")
+library("dplyr")
+library("sqldf")
+library("tidyr")
+library("ggplot2")
+library("rjson")
+library("mongolite")
+library("RMongo")
+library("RMySQL")
+library("DBI")
+library("knitr")
+library("RCurl")
+library("ggplot2")
+library("e1071")
+library("dplyr")
+library("scales")
+library("cowplot")
+library("MASS")
+library("corrplot")
+library("caret")
+library("Rmisc")
+library("FactoMineR")
+library("factoextra")
+
+```
+
+```{r}
+#Load the train data 
+Train_Data2 <- read.csv('C:/Users/sql_ent_svc/Desktop/DATA_605_Final_Project/train.CSV') 
+
+head (Train_Data2)
+
+str(Train_Data2) #checking the characteristic of the variable
+
+
+```
+
+```{r}
+skewness(Train_Data2$SalePrice) #Checking skewness of the SalePrice variable
+
+skewness(Train_Data2$GrLivArea)#Checking skewness of the GrLivArea variable
+
+
+skewness(Train_Data2$GarageArea)#Checking skewness of the GarageArea variable
+
+```
+
+From the above result I can see the variable SalePrice and GrLiveArea both are skewed to the right. So I will pick SalePrice variable as my Y variable and GrLiveArea variable as my X variable.
+
+Probability: Calculate as a minimum the below probabilities a through c.  Assume the small letter "x" is estimated as the 3d quartile of the X variable, and the small letter "y" is estimated as the 2d quartile of the Y variable.  Interpret the meaning of all probabilities.  In addition, make a table of counts as shown below.
+
+```{r}
+# GrLivArea
+(xQ3 <- quantile(Train_Data2$GrLivArea, 0.75))
+
+```
+
+```{r}
+# SalePrice
+(yQ2 <- quantile(Train_Data2$SalePrice, 0.5))
+
+```
+
+(a)P(X>x | Y>y)
+
+```{r}
+numerator <- filter(Train_Data2, SalePrice > yQ2 & GrLivArea > xQ3) %>% tally()/nrow(Train_Data2)
+
+denominator <- filter(Train_Data2, SalePrice > yQ2) %>% tally()/nrow(Train_Data2)
+
+(a <- numerator/denominator)
+
+```
+
+(b)P(X>x, Y>y)
+
+```{r}
+b1 <- filter(Train_Data2, GrLivArea > xQ3) %>% tally()/nrow(Train_Data2)
+b1
+
+b2 <- filter(Train_Data2, SalePrice > yQ2) %>% tally()/nrow(Train_Data2)
+
+(b <- b1*b2)
+
+```
+
+(c) P(X<x | Y>y)	
+
+```{r}
+numerator1 <- filter(Train_Data2, SalePrice > yQ2 & GrLivArea < xQ3) %>% tally()/nrow(Train_Data2)
+
+denominator1 <- filter(Train_Data2, SalePrice > yQ2) %>% tally()/nrow(Train_Data2)
+
+(c <- numerator1/denominator1)
+
+```
+
+From the above calculation, we get the following result. 
+
+x/y	           <=2d quartile	>2d quartile	  Total
+<=3d quartile	 682	             413	        1095
+>3d quartile	 50	               315	         365
+Total        	 732	             728	        1460
+
+Proving Independency:
+The value of P(A/B) is equivalent to P(X>x/Y>y), which was shown above to be 0.4327. And P(A) X P(B)= P(X>x) X P(Y>y)= (365/1460)X(728/1460)= .1247
+Hence P(A/B) not equal to  P(X>x) X P(Y>y). So, the variable A and B are not independent. 
+
+Calculating a Chi square test
+
+```{r}
+# matrix values are from the table above
+mat <- matrix(c( 682,  413,  50, 315), 2, 2, byrow=T) 
+
+chisq.test(mat, correct=TRUE) 
+
+```
+
+The Chi-squared test indicates dependence between X and Y (GrLivArea and SalePrice).As the p-value is significantly less than the .05 (significance level), we reject the null hypothesis that the X is independent of Y. 
+
+
+Descriptive and Inferential Statistics:
+Provide univariate descriptive statistics and appropriate plots for the training data set.  Provide a scatterplot of X and Y.  Provide a 95% CI for the difference in the mean of the variables.  Derive a correlation matrix for two of the quantitative variables you selected.  Test the hypothesis that the correlation between these variables is 0 and provide a 99% confidence interval.  Discuss the meaning of your analysis.
+
+```{r}
+# descriptive statistics on the numerical variables in the training dataset.
+
+head(summary (Train_Data2))
+
+#Summary statistics of two variables X (GrLivArea) and Y (SalePrice) are given below:
+
+summary (Train_Data2$GrLivArea)
+
+summary (Train_Data2$SalePrice)
+
+```
+
+
+```{r}
+# Simple Scatterplot of two variables X (GrLivArea) and Y (SalePrice)
+
+plot(Train_Data2$GrLivArea, Train_Data2$SalePrice, main= "Scatterplot of GrLivArea and Y SalePrice", 
+  	xlab="Grade Living Area ", ylab="Sale Price")
+
+hist(Train_Data2$GrLivArea, right = FALSE, main= "Histogram of GrLivArea", 
+  	xlab ="Grade Living Area", col = "green", las=3, breaks=15)
+
+hist(Train_Data2$SalePrice, right = FALSE, main= "Histogram of SalePrice", 
+  	xlab ="Sale Price", col = "green", las=3.5, breaks=15)
+
+```
+
+Computing t.test between GrLivArea and SalePrice variable.
+
+```{r}
+t.test(Train_Data2$GrLivArea, Train_Data2$SalePrice) 
+
+```
+
+By Using the t.test we can make a conclusion that with a 95% confidence interval,the difference in the means of X and Y is given by [-183,465, -175,346.4]. The p-value associated with this hypothesis test is essentially zero, so the null hypothesis that there is no difference between the means is rejected at any significance level.
+
+```{r}
+library ("MASS")
+#Correlation between GrLivArea and SalePrice
+
+cor(Train_Data2$GrLivArea,Train_Data2$SalePrice)
+
+#Sale price has strong positive correlation with grad Living area which mean if Grad Living area increase, Sale price also will increase. 
+
+#Correlation between other variables
+names(Train_Data2)
+
+cor_data5 <- subset(Train_Data2, select=c("LotArea", "TotalBsmtSF","BsmtFinSF1", "GrLivArea","GarageArea", "PoolArea","SalePrice"))
+
+names(cor_data5)
+summary(cor_data5)
+
+(other <- cor(cor_data5))
+
+str(Train_Data2)
+#Similary, we can also forcast the variable relationship in regards with sale price by looking at the correlation coeficient. 
+
+```
+
+Linear Algebra and Correlation: Invert your correlation matrix. (This is known as the precision matrix and contains variance inflation factors on the diagonal.) Multiply the correlation matrix by the precision matrix, and then multiply the precision matrix by the correlation matrix. Conduct principle components analysis (research this!)and interpret.  Discuss.
+
+```{r}
+#Invert your correlation matrix. (This is known as the precision matrix and contains variance inflation factors on the diagonal.)
+
+cor_data6 <- subset(Train_Data2, select=c("GrLivArea", "SalePrice")) #creating data to find correlation matrix and precision matrix. 
+
+(cor_matrix <- cor(cor_data6))
+
+```
+
+
+```{r}
+(Pre_matrix <- solve(cor_matrix)) #Precision matrix
+
+cor_matrix %*% Pre_matrix #Multiply correlation matrix by the precision matrix.
+
+Pre_matrix %*% cor_matrix # Multiply precision matrix by correlation matrix
+
+# After Both matrix operation it return the identity matrix.  
+
+```
+
+Conducting principle components analysis,interpretition and Discussion.
+
+```{r}
+numeric_data2 <- Train_Data2[, which(sapply(Train_Data2, is.numeric))] #transforming data into numeric values
+
+numeric_data2[is.na(numeric_data2[1:38])]<-0 #replacing NA values to zero. 
+head(numeric_data2)
+
+
+numeric.pca = PCA(numeric_data2, scale.unit=TRUE, ncp=5, graph=T) #Finding Individual factor map and variables factor map. 
+
+#numeric_data4 <- select(numeric_data1, MSSubClass,LotFrontage,LotArea, BsmtFinSF1,BsmtUnfSF, X1stFlrSF,GrLivArea, GarageArea, OpenPorchSF, PoolArea, SalePrice)
+
+numeric_data5 <- subset(numeric_data2, select=c("MSSubClass","LotFrontage","LotArea", "BsmtFinSF1","BsmtUnfSF", "X1stFlrSF","GrLivArea", "GarageArea", "OpenPorchSF", "PoolArea", "SalePrice"))# Selecting the variable which are higher relationship among themselves. 
+
+head(numeric_data5)
+
+#Transforming the variable into numeric data. 
+numeric_data5 <- transform(numeric_data5,  MSSubClass = as.numeric( MSSubClass))
+numeric_data5 <- transform(numeric_data5,  LotFrontage = as.numeric( LotFrontage))
+numeric_data5 <- transform(numeric_data5,  LotArea = as.numeric( LotArea))
+numeric_data5 <- transform(numeric_data5, BsmtFinSF1 = as.numeric(BsmtFinSF1))
+numeric_data5 <- transform(numeric_data5,  BsmtUnfSF = as.numeric(BsmtUnfSF))
+numeric_data5 <- transform(numeric_data5,  X1stFlrSF = as.numeric( X1stFlrSF))
+numeric_data5 <- transform(numeric_data5,  GrLivArea = as.numeric( GrLivArea))
+numeric_data5 <- transform(numeric_data5,  GarageArea = as.numeric( GarageArea))
+numeric_data5 <- transform(numeric_data5, OpenPorchSF = as.numeric( OpenPorchSF))
+numeric_data5 <- transform(numeric_data5,  PoolArea = as.numeric(  PoolArea))
+numeric_data5 <- transform(numeric_data5, SalePrice = as.numeric( SalePrice))
+
+str(numeric_data5) # for checking variable characteristic
+(my.cov <- cov(numeric_data5)) #finding covariance matrix
+(cor_mat1 <- cor(numeric_data5)) #finding correlation coefficient among themselves. 
+
+```
+Finding correlation matrix graphical picture. From the graphical observation we can see variable GrLivArea has strong positive relation ship with SalePrice since the picture shows the intersection of both of the box is dark blue. 
+
+```{r}
+corrplot(cor_mat1, method="square")
+
+```
+X1stFlrSF, GrLivArea, and GarageArea are the mostly highly correlated variables, with SalePrice being the highest at 0.70862448.
+
+Calculus-Based Probability and Statistics:
+Many times, it makes sense to fit a closed form distribution to data.  For your variable that is skewed to the right, shift it so that the minimum value is above zero.  Then load the MASS package and run fitdistr to fit an exponential probability density function.  (See  https://stat.ethz.ch/R-manual/R-devel/library/MASS/html/fitdistr.html ).  Find the optimal value of ??? for this distribution, and then take 1000 samples from this exponential distribution using this value (e.g., rexp(1000, ???)).  Plot a histogram and compare it with a histogram of your original variable.   Using the exponential pdf, find the 5th and 95th percentiles using the cumulative distribution function (CDF).   Also generate a 95% confidence interval from the empirical data, assuming normality.  Finally, provide the empirical 5th percentile and 95th percentile of the data.  Discuss
+
+```{r}
+library("MASS") #loading package 
+min(Train_Data2$GrLivArea)
+(GrLivArea1 <- Train_Data2$GrLivArea + .00000001)
+
+```
+
+```{r}
+#finding the exponential distribution
+
+fit <- fitdistr(GrLivArea1, "exponential")
+
+# find lambda
+
+(lambda <- fit$estimate)
+
+```
+
+```{r}
+#Creating 1000 sample data
+sample <- rexp(1000, lambda)
+
+```
+
+Histogram of Stimulated observation
+
+```{r}
+hist(Train_Data2$GrLivArea, right = FALSE, main= "Histogram of stimulated GrLivArea", 
+  	xlab ="Grade Living Area", col = "green", las=.1, breaks=20)
+
+```
+
+Histogram of Observed data
+
+```{r}
+
+hist(sample, right = FALSE, main= "Histogram of Observed GrLivArea", 
+  	xlab ="Grade Living Area", col = "green", las=.1, breaks=20)
+```
+
+From the both historgram we can see a significant difference between them, where stimulated data has skewed shape distribution but the observation data has approximately normal shape. 
+
+Using the exponential pdf, find the 5th and 95th percentiles using the cumulative distribution function (CDF).
+
+Percentile is given by:
+
+log(1???P)/?????
+
+```{r}
+# simulated
+(cdf.p5 <- log(1 - .05)/-lambda)  #5th percentile stimulated GrLivArea
+(csf.p95 <- log(1 - .95)/-lambda)  # 95th percentile stimulated GrLivArea
+
+
+(obs.p5 <- quantile(Train_Data2$GrLivArea, 0.05)) # 5th percentile observed GrLivArea
+(obs.p95 <- quantile(Train_Data2$GrLivArea, 0.95)) # 95th percentile observed GrLivArea
+
+```
+Calculated a 95% confidence interval from the empirical data, assuming normality.
+
+```{r}
+CI(Train_Data2$GrLivArea, 0.95)
+
+
+```
+
+With 95% confidence, the mean of GrLivArea is between 1488.487 and 1542.440. The exponential distribution would not be a good fit in this case. We see that the center of the exponential distribution is shifted left as compared the empirical data. Additionally we see more spread in the exponential distribution.
+
+
+Modeling:
+Build some type of regression model and submit your model to the competition board. Provide your complete model summary and results with analysis. Report your Kaggle.com user name and score.
+
+```{r}
+#Transform the data into numeric value. 
+numeric_var1 <- Train_Data2[, which(sapply(Train_Data2, is.numeric))]
+
+(rfFit <-(lm(SalePrice ~.,
+              numeric_var1))) # fit the model of the Train_Data2. 
+
+
+```
+
+
+```{r}
+# select variables with no NA values
+step_data <- Train_Data2[, which(sapply(Train_Data2, function(x) sum(is.na(x))) == 0)]
+# prepare stepwise model using all non-NA variables
+stepback <- step(lm(SalePrice ~ ., step_data), direction = 'backward', trace = FALSE)
+stepback
+
+```
+
+We have find the following model from the data above:
+Linear model of the data for Sale Price is: 
+SalePrice ~ MSZoning + LotArea + Street + LandContour + 
+    LotConfig + LandSlope + Neighborhood + Condition1 + Condition2 + 
+    BldgType + HouseStyle + OverallQual + OverallCond + YearBuilt + 
+    YearRemodAdd + RoofStyle + RoofMatl + ExterQual + Foundation + 
+    BsmtFinSF1 + BsmtFinSF2 + BsmtUnfSF + X1stFlrSF + X2ndFlrSF + 
+    FullBath + BedroomAbvGr + KitchenAbvGr + KitchenQual + TotRmsAbvGrd + 
+    Functional + Fireplaces + GarageCars + GarageArea + WoodDeckSF + 
+    ScreenPorch + PoolArea + MoSold + SaleType
+    
+    
+    
+
